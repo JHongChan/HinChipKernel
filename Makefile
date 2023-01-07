@@ -20,6 +20,7 @@ clean-submodules:
 clean: linux-clean bootloader-clean
 	git submodule foreach --recursive git clean -xfdq
 	sudo rm -rf debian-riscv64*
+	sudo rm -rf workspace
 
 # --- download gcc, initrd and rootfs from github.com ---
 
