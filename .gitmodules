@@ -1,0 +1,3 @@
+[submodule "linux_stable"]
+	path = linux_stable
+	url = https://github.com/gregkh/linux.git
