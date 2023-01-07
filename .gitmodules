@@ -1,9 +1,9 @@
-[submodule "linux_stable"]
-	path = linux-stable
-	url = https://github.com/gregkh/linux.git
 [submodule "u-boot"]
 	path = u-boot
 	url = https://github.com/u-boot/u-boot.git
 [submodule "opensbi"]
 	path = opensbi
 	url = https://github.com/riscv/opensbi.git
+[submodule "linux-stable"]
+	path = linux-stable
+	url = https://github.com/gregkh/linux.git
