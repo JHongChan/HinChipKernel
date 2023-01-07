@@ -1,5 +1,5 @@
 [submodule "linux_stable"]
-	path = linux_stable
+	path = linux-stable
 	url = https://github.com/gregkh/linux.git
 [submodule "u-boot"]
 	path = u-boot
