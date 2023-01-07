@@ -1,12 +1,62 @@
 # --- configuration ---
 
+# --- packages and repos ---
+
+apt-install:
+	sudo apt update
+	sudo apt upgrade
+	sudo apt install default-jdk device-tree-compiler python curl gawk \
+	 libtinfo5 libmpc-dev gcc gcc-riscv64-linux-gnu gcc-8-riscv64-linux-gnu flex bison
+
+# skip submodules which are not needed and take long time to update
+SKIP_SUBMODULES = torture software/gemmini-rocc-tests software/onnxruntime-riscv
+
+update-submodules:
+	git $(foreach m,$(SKIP_SUBMODULES),-c submodule.$(m).update=none) submodule update --init --force --recursive
+
+clean-submodules:
+	git submodule foreach --recursive git clean -xfdq
+
+clean: clean-submodules linux-clean bootloader-clean
+	git submodule foreach --recursive git clean -xfdq
+	sudo rm -rf debian-riscv64
+
+# --- download gcc, initrd and rootfs from github.com ---
+
+workspace/gcc/tools.tar.gz:
+	mkdir -p workspace/gcc
+	curl --netrc --location --header 'Accept: application/octet-stream' \
+	  https://api.github.com/repos/eugene-tarassov/vivado-risc-v/releases/assets/18060315 \
+	  -o $@.tmp
+	mv $@.tmp $@
+
+workspace/gcc/riscv: workspace/gcc/tools.tar.gz
+	cd workspace/gcc && tar xzf tools.tar.gz
+	touch $@
+
+debian-riscv64/initrd:
+	mkdir -p debian-riscv64
+	curl --netrc --location --header 'Accept: application/octet-stream' \
+	  https://api.github.com/repos/eugene-tarassov/vivado-risc-v/releases/assets/83694315 \
+	  -o $@.tmp
+	mv $@.tmp $@
+
+debian-riscv64/rootfs.tar.gz:
+	mkdir -p debian-riscv64
+	curl --netrc --location --header 'Accept: application/octet-stream' \
+	  https://api.github.com/repos/eugene-tarassov/vivado-risc-v/releases/assets/83694317 \
+	  -o $@.tmp
+	mv $@.tmp $@
+
 # --- build Linux kernel ---
 
-.PHONY: linux linux-patch
+.PHONY: linux linux-patch linux-clean linux-menuconfig
 
 linux: linux-stable/arch/riscv/boot/Image
 
 CROSS_COMPILE_LINUX = /usr/bin/riscv64-linux-gnu-
+
+LINUXMENUCONFIG ?= no
 
 linux-patch: patches/linux.patch patches/fpga-axi-sdc.c patches/fpga-axi-eth.c patches/linux.config
 	if [ -s patches/linux.patch ] ; then cd linux-stable && ( git apply -R --check ../patches/linux.patch 2>/dev/null || git apply ../patches/linux.patch ) ; fi
@@ -15,17 +65,25 @@ linux-patch: patches/linux.patch patches/fpga-axi-sdc.c patches/fpga-axi-eth.c p
 	cp -p patches/fpga-axi-uart.c linux-stable/drivers/tty/serial
 	cp -p patches/linux.config linux-stable/.config
 
-linux-stable/arch/riscv/boot/Image: linux-patch
+linux-stable/arch/riscv/boot/Image: linux-patch linux-menuconfig
 	make -C linux-stable ARCH=riscv CROSS_COMPILE=$(CROSS_COMPILE_LINUX) oldconfig
 	make -C linux-stable ARCH=riscv CROSS_COMPILE=$(CROSS_COMPILE_LINUX) all
 
+linux-clean:
+	make -C linux-stable ARCH=riscv CROSS_COMPILE=$(CROSS_COMPILE_LINUX) clean
+	make -C linux-stable ARCH=riscv CROSS_COMPILE=$(CROSS_COMPILE_LINUX) distclean
+	
+linux-menuconfig:
+ifeq ($(LINUXMENUCONFIG),yes)
+	make -C linux-stable ARCH=riscv CROSS_COMPILE=$(CROSS_COMPILE_LINUX) menuconfig
+endif
 
 # --- build U-Boot ---
 
 ROOTFS ?= SD
 ROOTFS_URL ?= 192.168.0.100:/home/nfsroot/192.168.0.243
 
-.PHONY: u-boot u-boot-patch
+.PHONY: u-boot u-boot-patch u-boot-clean
 
 u-boot: u-boot/u-boot-nodtb.bin
 
@@ -60,6 +118,19 @@ u-boot/u-boot-nodtb.bin: u-boot-patch $(U_BOOT_SRC)
 	  KCFLAGS='-O1 -gno-column-info' \
 	  all
 
+u-boot-clean:
+	make -C u-boot \
+	  BOARD=vivado_riscv64 \
+	  CC=$(CROSS_COMPILE_LINUX)gcc-8 \
+	  CROSS_COMPILE=$(CROSS_COMPILE_LINUX) \
+	  KCFLAGS='-O1 -gno-column-info' \
+	  clean
+	make -C u-boot \
+	  BOARD=vivado_riscv64 \
+	  CC=$(CROSS_COMPILE_LINUX)gcc-8 \
+	  CROSS_COMPILE=$(CROSS_COMPILE_LINUX) \
+	  KCFLAGS='-O1 -gno-column-info' \
+	  distclean
 
 # --- build RISC-V Open Source Supervisor Binary Interface (OpenSBI) ---
 
@@ -74,4 +145,11 @@ opensbi/build/platform/vivado-risc-v/firmware/fw_payload.elf: $(wildcard patches
 	cp -p patches/opensbi/* opensbi/platform/vivado-risc-v
 	make -C opensbi CROSS_COMPILE=$(CROSS_COMPILE_LINUX) PLATFORM=vivado-risc-v \
 	 FW_PAYLOAD_PATH=`realpath u-boot/u-boot-nodtb.bin`
+	 
+bootloader-clean: u-boot-clean
+	make -C opensbi CROSS_COMPILE=$(CROSS_COMPILE_LINUX) PLATFORM=vivado-risc-v \
+	 FW_PAYLOAD_PATH=`realpath u-boot/u-boot-nodtb.bin` clean
+	make -C opensbi CROSS_COMPILE=$(CROSS_COMPILE_LINUX) PLATFORM=vivado-risc-v \
+	 FW_PAYLOAD_PATH=`realpath u-boot/u-boot-nodtb.bin` distclean
+	rm -rf workspace
 
