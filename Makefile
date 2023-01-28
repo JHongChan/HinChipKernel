@@ -64,6 +64,8 @@ linux-patch: patches/linux.patch patches/fpga-axi-sdc.c patches/fpga-axi-eth.c p
 	cp -p patches/fpga-axi-eth.c  linux-stable/drivers/net/ethernet
 	cp -p patches/fpga-axi-sdc.c  linux-stable/drivers/mmc/host
 	cp -p patches/fpga-axi-uart.c linux-stable/drivers/tty/serial
+	cp -p patches/configfs.c linux-stable/drivers/of
+	cp -p patches/configfs-overlays.txt linux-stable/Documentation/devicetree
 	cp -p patches/linux.config linux-stable/.config
 
 linux-stable/arch/riscv/boot/Image: linux-patch linux-menuconfig

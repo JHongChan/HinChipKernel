@@ -72,6 +72,38 @@ index 9eb01169957f..08a5461e30fc 100644
  obj-$(CONFIG_NET_VENDOR_PACKET_ENGINES) += packetengines/
  obj-$(CONFIG_NET_VENDOR_PASEMI) += pasemi/
  obj-$(CONFIG_NET_VENDOR_QLOGIC) += qlogic/
+diff --git a/drivers/of/Kconfig b/drivers/of/Kconfig
+index 80b5fd44ab1c..da62bc676695 100644
+--- a/drivers/of/Kconfig
++++ b/drivers/of/Kconfig
+@@ -94,4 +94,15 @@ config OF_DMA_DEFAULT_COHERENT
+ 	# arches should select this if DMA is coherent by default for OF devices
+ 	bool
+ 
++config OF_CONFIGFS
++	bool "Device Tree Overlay ConfigFS interface"
++	select CONFIGFS_FS
++	depends on OF_OVERLAY
++	help
++	  Select this option to enable simple user-space driven DT overlay
++	  interface to support device tree manipulated at runtime.
++	  Say Y here to include this support.
++
++	  If unsure, say N.
++
+ endif # OF
+diff --git a/drivers/of/Makefile b/drivers/of/Makefile
+index e0360a44306e..90c92ced24e6 100644
+--- a/drivers/of/Makefile
++++ b/drivers/of/Makefile
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
+ obj-y = base.o device.o platform.o property.o
+ obj-$(CONFIG_OF_KOBJ) += kobj.o
++obj-$(CONFIG_OF_CONFIGFS) += configfs.o
+ obj-$(CONFIG_OF_DYNAMIC) += dynamic.o
+ obj-$(CONFIG_OF_FLATTREE) += fdt.o
+ obj-$(CONFIG_OF_EARLY_FLATTREE) += fdt_address.o
 diff --git a/drivers/tty/serial/Kconfig b/drivers/tty/serial/Kconfig
 index a452748c69b2..1051f977a0e5 100644
 --- a/drivers/tty/serial/Kconfig
